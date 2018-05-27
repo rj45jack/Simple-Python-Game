@@ -30,6 +30,7 @@ class soldier(object):
         self.path = [self.x, self.end]
         self.walkCount = 0
         self.vel = 3
+        self.hitbox = (self.x + 20, self.y, 50, 100)
 
     def draw(self,win):
         self.move()
@@ -42,7 +43,8 @@ class soldier(object):
         else:
             win.blit(self.walkLeft[self.walkCount // 15], (self.x, self.y))
             self.walkCount += 1
-
+        self.hitbox = (self.x + 20, self.y, 50, 100)
+        pygame.draw.rect(win, (255, 0, 0), self.hitbox, 2)
 
         pass
 
@@ -59,6 +61,10 @@ class soldier(object):
             else:
                 self.vel = self.vel * -1
                 self.walkCount = 0
+
+    def hit(self):
+        print('ouch')
+        pass
 
 
 # class for the player
@@ -80,6 +86,7 @@ class player(object):
         self.right = False
         self.walkCount = 0
         self.standing = True
+        self.hitbox = (self.x + -20, self.y, 90, 100)
 
     def draw(self,win):
         if self.walkCount + 1 >= 60:
@@ -97,6 +104,8 @@ class player(object):
                 win.blit(self.walkRight[0], (self.x, self.y))
             else:
                 win.blit(self.walkLeft[0], (self.x, self.y))
+        self.hitbox = (self.x + -20, self.y, 90, 100)
+        pygame.draw.rect(win, (255, 0, 0), self.hitbox, 2)
 
 # class for projectile/laser
 class projectile(object):
@@ -127,15 +136,26 @@ baddie = soldier(200, 500, 100, 100, 700)
 lasers = []
 
 #loop time baby
+shootl = 0
 run = True
 while run:
     clock.tick(60) # FPS Rate PCMR
+
+    if shootl > 0:
+        shootl += 1
+    if shootl > 12:
+        shootl  = 0
 
     for event in pygame.event.get(): #gotta quit somehow
         if event.type == pygame.QUIT:
             run = False
 
     for laser in lasers: #pew pew laser moving and removal
+        if laser.y - laser.radius < baddie.hitbox[1] + baddie.hitbox[3] and laser.y + laser.radius > baddie.hitbox[1]:
+            if laser.x + laser.radius > baddie.hitbox[0] and laser.x - laser.radius < baddie.hitbox[0] + baddie.hitbox[2]:
+                baddie.hit()
+                lasers.pop(lasers.index(laser))
+
         if laser.x < screenx and laser.x > 0:
             laser.x += laser.vel
         else:
@@ -143,7 +163,7 @@ while run:
 
     keys = pygame.key.get_pressed()
 
-    if keys[pygame.K_x]: # pressing X shoots the lasers and controls direction
+    if keys[pygame.K_x] and shootl == 0: # pressing X shoots the lasers and controls direction
         if wade.left:
             facing = -1
         else:
@@ -151,6 +171,8 @@ while run:
 
         if len(lasers) < 5:
             lasers.append(projectile(round(wade.x + wade.width //2 + 15), round(wade.y + wade.height//2 + 15 ), 3, (123, 255 , 0), facing))
+
+        shootl = 1
 
     if keys[pygame.K_LEFT] and wade.x > wade.vel: # moving left
         wade.x -= wade.vel
