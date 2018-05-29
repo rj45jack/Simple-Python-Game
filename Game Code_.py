@@ -9,9 +9,20 @@ win = pygame.display.set_mode((screenx, screeny))
 pygame.display.set_caption("get.rect()")
 icon = pygame.image.load('mario.ico')
 pygame.display.set_icon(icon)
-
 char = pygame.image.load('Hat_man1.png')
 bg = pygame.image.load('maxresdefault.jpg')
+hitcount = 0
+scorecount = 0
+shootl = 0
+run = True
+scorefont = pygame.font.SysFont("comicsans", 32, True)
+
+lasersound = pygame.mixer.Sound("Laser1.wav")
+hitsound = pygame.mixer.Sound("Explosion.wav")
+deathsound = pygame.mixer.Sound("Randomize4.wav")
+jumpsound = pygame.mixer.Sound("Jump.wav")
+music = pygame.mixer.music.load("Map.wav")
+pygame.mixer.music.play(-1)
 
 
 # class for solider and images for animation
@@ -31,20 +42,29 @@ class soldier(object):
         self.walkCount = 0
         self.vel = 3
         self.hitbox = (self.x + 20, self.y, 50, 100)
+        self.health = 10
+        self.visible = True
+
 
     def draw(self,win):
         self.move()
-        if self.walkCount + 1 >= 60:
-            self.walkCount = 0
+        if self.visible:
 
-        if self.vel > 0:
-            win.blit(self.walkRight[self.walkCount // 15], (self.x, self.y))
-            self.walkCount += 1
-        else:
-            win.blit(self.walkLeft[self.walkCount // 15], (self.x, self.y))
-            self.walkCount += 1
-        self.hitbox = (self.x + 20, self.y, 50, 100)
-        pygame.draw.rect(win, (255, 0, 0), self.hitbox, 2)
+            if self.walkCount + 1 >= 60:
+                self.walkCount = 0
+
+            if self.vel > 0:
+                win.blit(self.walkRight[self.walkCount // 15], (self.x, self.y))
+                self.walkCount += 1
+            else:
+                win.blit(self.walkLeft[self.walkCount // 15], (self.x, self.y))
+                self.walkCount += 1
+
+            pygame.draw.rect(win, (255, 0, 0), (self.hitbox[0], self.hitbox[1] - 20, 50, 10))
+            pygame.draw.rect(win, (0, 128, 0), (self.hitbox[0], self.hitbox[1] - 20, 50 - (5*(10 -self.health)), 10))
+
+            self.hitbox = (self.x + 20, self.y, 50, 100)
+            #pygame.draw.rect(win, (255, 0, 0), self.hitbox, 2) #hitbox draw
 
         pass
 
@@ -63,9 +83,13 @@ class soldier(object):
                 self.walkCount = 0
 
     def hit(self):
+        if self.health > 1:
+            self.health -= 1
+            hitsound.play()
+        else:
+            self.visible = False
+            deathsound.play()
         print('ouch')
-        pass
-
 
 # class for the player
 class player(object):
@@ -88,6 +112,7 @@ class player(object):
         self.standing = True
         self.hitbox = (self.x + -20, self.y, 90, 100)
 
+
     def draw(self,win):
         if self.walkCount + 1 >= 60:
             self.walkCount = 0
@@ -104,8 +129,30 @@ class player(object):
                 win.blit(self.walkRight[0], (self.x, self.y))
             else:
                 win.blit(self.walkLeft[0], (self.x, self.y))
-        self.hitbox = (self.x + -20, self.y, 90, 100)
-        pygame.draw.rect(win, (255, 0, 0), self.hitbox, 2)
+
+        self.hitbox = (self.x + -5, self.y, 80, 100)
+        # pygame.draw.rect(win, (255, 0, 0), self.hitbox, 2) # hitbox
+
+    def hit(self):
+        self.isJump = False
+        self.jumpCount = 10
+        self.x = 50
+        self.y = 500
+        self.walkCount = 0
+        fonthit = pygame.font.SysFont("comicsans", 100)
+        text = fonthit.render("Oof", 1, (255, 0, 0))
+        win.blit(text, (screenx /2 - (text.get_width() /2), 200))
+        pygame.display.update()
+
+        i = 0
+        while i < 50:
+            pygame.time.delay(10)
+            i += 1
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    i = 301
+                    pygame.quit()
+
 
 # class for projectile/laser
 class projectile(object):
@@ -124,6 +171,8 @@ class projectile(object):
 def redrawGameWindow():
     win.fill((0, 0, 0))
     win.blit(bg, (0,0))
+    text = scorefont.render("Score: " + str(hitcount), 1, (255, 255, 255))
+    win.blit(text, (480, 20))
     wade.draw(win)
     baddie.draw(win)
     for laser in lasers:
@@ -136,10 +185,15 @@ baddie = soldier(200, 500, 100, 100, 700)
 lasers = []
 
 #loop time baby
-shootl = 0
-run = True
+
 while run:
     clock.tick(60) # FPS Rate PCMR
+
+    if baddie.visible == True:
+        if wade.hitbox[1] < baddie.hitbox[1] + baddie.hitbox[3] and wade.hitbox[1] + wade.hitbox[3] > baddie.hitbox[1]:
+            if wade.hitbox[0] + wade.hitbox[2] > baddie.hitbox[0] and wade.hitbox[0] < baddie.hitbox[0] + baddie.hitbox[2]:
+                wade.hit()
+                hitcount -= 5
 
     if shootl > 0:
         shootl += 1
@@ -151,10 +205,16 @@ while run:
             run = False
 
     for laser in lasers: #pew pew laser moving and removal
-        if laser.y - laser.radius < baddie.hitbox[1] + baddie.hitbox[3] and laser.y + laser.radius > baddie.hitbox[1]:
-            if laser.x + laser.radius > baddie.hitbox[0] and laser.x - laser.radius < baddie.hitbox[0] + baddie.hitbox[2]:
-                baddie.hit()
-                lasers.pop(lasers.index(laser))
+        if baddie.visible == True:
+            if laser.y - laser.radius < baddie.hitbox[1] + baddie.hitbox[3] and laser.y + laser.radius > baddie.hitbox[1]:
+                if laser.x + laser.radius > baddie.hitbox[0] and laser.x - laser.radius < baddie.hitbox[0] + baddie.hitbox[2]:
+                    baddie.hit()
+                    hitcount += 1
+                    #scorecount += hitcount
+                    lasers.pop(lasers.index(laser))
+
+       # if hitcount > 3:
+        #    hitcount = 0
 
         if laser.x < screenx and laser.x > 0:
             laser.x += laser.vel
@@ -164,6 +224,7 @@ while run:
     keys = pygame.key.get_pressed()
 
     if keys[pygame.K_x] and shootl == 0: # pressing X shoots the lasers and controls direction
+        lasersound.play()
         if wade.left:
             facing = -1
         else:
@@ -190,6 +251,7 @@ while run:
 
     if not wade.isJump:
         if keys[pygame.K_SPACE]: # jumping
+            jumpsound.play()
             wade.isJump = True
             wade.right = False
             wade.left = False
